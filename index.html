@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ONGC Security Gate — POB Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0a0e14; --surface:#111720; --surface2:#182030; --border:#1e2d42;
+    --accent:#00c2ff; --green:#00e676; --red:#ff3d57; --yellow:#fbbf24;
+    --text:#d4e8f7; --muted:#5a7a99;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+  body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,194,255,0.01) 2px,rgba(0,194,255,0.01) 4px);pointer-events:none;z-index:9999;}
+  header{background:linear-gradient(135deg,#0a1525,#0d1e35);border-bottom:2px solid var(--accent);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 4px 30px rgba(0,194,255,0.15);gap:12px;flex-wrap:wrap;}
+  .logo-title{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;color:var(--accent);letter-spacing:2px;text-transform:uppercase;}
+  .logo-sub{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:2px;margin-top:2px;}
+  .header-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .sync-btn{display:flex;align-items:center;gap:7px;background:rgba(0,194,255,0.1);border:1.5px solid var(--accent);color:var(--accent);border-radius:6px;padding:7px 14px;cursor:pointer;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;transition:all 0.2s;white-space:nowrap;}
+  .sync-btn:hover{background:rgba(0,194,255,0.22);}
+  .sync-btn:active{transform:scale(0.97);}
+  .sync-icon{font-size:15px;display:inline-block;}
+  .sync-btn.spinning .sync-icon{animation:spin 0.7s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .status-pill{font-family:'Share Tech Mono',monospace;font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid;letter-spacing:1px;white-space:nowrap;transition:all 0.3s;}
+  .status-pill.idle{color:var(--muted);border-color:var(--border);}
+  .status-pill.loading{color:var(--yellow);border-color:var(--yellow);background:rgba(251,191,36,0.08);}
+  .status-pill.ok{color:var(--green);border-color:var(--green);background:rgba(0,230,118,0.08);}
+  .status-pill.error{color:var(--red);border-color:var(--red);background:rgba(255,61,87,0.08);}
+  .clock{font-family:'Share Tech Mono',monospace;font-size:18px;color:var(--accent);text-align:right;}
+  .clock-date{font-size:10px;color:var(--muted);text-align:right;margin-top:1px;}
+  .sync-info-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:6px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+  .sync-info-txt{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);}
+  .sync-info-note{font-size:11px;color:var(--muted);font-style:italic;}
+  .pob-banner{background:linear-gradient(90deg,rgba(0,194,255,0.08),rgba(0,194,255,0.02));border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:20px;overflow-x:auto;scrollbar-width:none;}
+  .pob-banner::-webkit-scrollbar{display:none;}
+  .pob-label{font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;color:var(--muted);letter-spacing:2px;text-transform:uppercase;white-space:nowrap;}
+  .pob-total-box{display:flex;align-items:center;gap:8px;background:rgba(0,194,255,0.12);border:1.5px solid var(--accent);border-radius:6px;padding:5px 16px;}
+  .pob-total-num{font-family:'Rajdhani',sans-serif;font-size:30px;font-weight:700;color:var(--accent);line-height:1;}
+  .pob-total-label{font-size:10px;color:var(--muted);letter-spacing:1px;}
+  .pob-breakdown{display:flex;gap:10px;flex-wrap:wrap;}
+  .pob-chip{display:flex;align-items:center;gap:5px;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:3px 10px;font-size:12px;white-space:nowrap;}
+  .pob-chip-dot{width:7px;height:7px;border-radius:50%;}
+  .pob-chip-count{font-family:'Share Tech Mono',monospace;font-weight:600;font-size:14px;}
+  .tabs-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;}
+  .tabs-bar::-webkit-scrollbar{display:none;}
+  .tab-btn{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;padding:12px 16px 10px;border:none;background:transparent;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;transition:all 0.2s;white-space:nowrap;display:flex;align-items:center;gap:7px;}
+  .tab-btn:hover{color:var(--text);}
+  .tab-btn.active{border-bottom-color:var(--accent);}
+  .tab-count{background:var(--border);border-radius:10px;padding:1px 7px;font-size:11px;font-family:'Share Tech Mono',monospace;}
+  .tab-btn.active .tab-count{background:rgba(0,194,255,0.2);color:var(--accent);}
+  .main{padding:16px 20px;}
+  .category-section{display:none;}
+  .category-section.active{display:block;}
+  .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border);gap:12px;flex-wrap:wrap;}
+  .section-title{display:flex;align-items:center;gap:10px;font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;letter-spacing:2px;text-transform:uppercase;}
+  .section-dot{width:11px;height:11px;border-radius:50%;box-shadow:0 0 7px currentColor;}
+  .section-stats{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .stat-box{text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 12px;min-width:58px;}
+  .stat-num{font-family:'Share Tech Mono',monospace;font-size:20px;font-weight:600;line-height:1;}
+  .stat-num.on{color:var(--green);}
+  .stat-num.off{color:var(--red);}
+  .stat-label{font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-top:2px;}
+  .search-wrap{margin-bottom:14px;position:relative;}
+  .search-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:9px 14px 9px 38px;color:var(--text);font-family:'Barlow',sans-serif;font-size:14px;outline:none;transition:border-color 0.2s;}
+  .search-input:focus{border-color:var(--accent);}
+  .search-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:15px;}
+  .personnel-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:9px;}
+  .person-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all 0.15s;position:relative;overflow:hidden;user-select:none;}
+  .person-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--red);transition:background 0.2s;}
+  .person-card.on-site::before{background:var(--green);}
+  .person-card:hover{border-color:rgba(0,194,255,0.3);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,0.3);}
+  .person-checkbox{width:26px;height:26px;border-radius:5px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s;background:var(--surface2);}
+  .person-card.on-site .person-checkbox{background:var(--green);border-color:var(--green);}
+  .check-mark{display:none;font-size:15px;color:#000;font-weight:700;}
+  .person-card.on-site .check-mark{display:block;}
+  .person-info{flex:1;min-width:0;}
+  .person-name{font-weight:600;font-size:14px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;}
+  .person-meta{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);margin-top:2px;}
+  .status-badge{font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;letter-spacing:1.5px;padding:3px 9px;border-radius:3px;flex-shrink:0;}
+  .status-badge.on{background:rgba(0,230,118,0.12);color:var(--green);border:1px solid rgba(0,230,118,0.3);}
+  .status-badge.off{background:rgba(255,61,87,0.10);color:var(--red);border:1px solid rgba(255,61,87,0.25);}
+  .loading-overlay{position:fixed;inset:0;background:rgba(10,14,20,0.88);z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;}
+  .loading-overlay.hidden{display:none;}
+  .loading-spinner{width:50px;height:50px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;}
+  .loading-text{font-family:'Share Tech Mono',monospace;font-size:13px;color:var(--accent);letter-spacing:2px;}
+  .loading-sub{font-size:12px;color:var(--muted);}
+  .toast{position:fixed;bottom:20px;right:20px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:11px 18px;font-size:14px;color:var(--text);box-shadow:0 8px 32px rgba(0,0,0,0.5);transform:translateY(100px);opacity:0;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);z-index:1000;max-width:300px;display:flex;align-items:center;gap:10px;}
+  .toast.show{transform:translateY(0);opacity:1;}
+  .toast.toast-in{border-left:3px solid var(--green);}
+  .toast.toast-out{border-left:3px solid var(--red);}
+  .empty-state{text-align:center;padding:40px;color:var(--muted);font-size:14px;}
+  @media(max-width:600px){
+    header{padding:9px 12px;}
+    .pob-banner,.main,.sync-info-bar{padding:9px 12px;}
+    .tabs-bar{padding:0 8px;}
+    .logo-title{font-size:15px;}
+    .clock{font-size:14px;}
+    .personnel-grid{grid-template-columns:1fr;}
+    .sync-btn{padding:6px 10px;font-size:11px;}
+  }
+</style>
+</head>
+<body>
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">LOADING FROM GOOGLE SHEETS...</div>
+  <div class="loading-sub">All devices will show the same data</div>
+</div>
+
+<header>
+  <div>
+    <div class="logo-title">⬡ ONGC Security Gate</div>
+    <div class="logo-sub">INSTALLATION — POB TRACKING SYSTEM</div>
+  </div>
+  <div class="header-right">
+    <button class="sync-btn" id="syncBtn" onclick="syncNow()">
+      <span class="sync-icon">⟳</span>
+      SYNC WITH SHEETS
+    </button>
+    <div class="status-pill idle" id="statusPill">⬤ IDLE</div>
+    <div>
+      <div class="clock" id="clock">--:--:--</div>
+      <div class="clock-date" id="clockDate"></div>
+    </div>
+  </div>
+</header>
+
+<div class="sync-info-bar">
+  <div class="sync-info-txt">🔄 Last synced: <span id="lastSyncTime">Never</span></div>
+  <div class="sync-info-note">Auto-refreshes every 60 sec · Always loads latest sheet data on open</div>
+</div>
+
+<div class="pob-banner">
+  <div class="pob-label">Total POB</div>
+  <div class="pob-total-box">
+    <div class="pob-total-num" id="totalPOB">0</div>
+    <div class="pob-total-label">PERSONS<br>ON BOARD</div>
+  </div>
+  <div class="pob-breakdown" id="pobBreakdown"></div>
+</div>
+
+<div class="tabs-bar" id="tabsBar"></div>
+<div class="main"><div id="sectionsContainer"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwrWh_SaBKXmqMzf8Tl6Q46rC9HUaeseVCsiUh2U3jFgwSPrL4jEoaPWWgr0b5xrczF/exec";
+
+const CATEGORIES = [
+  {id:'ongc', name:'ONGC', color:'#00c2ff', sheetKey:'ONGC'},
+  {id:'hal', name:'HAL', color:'#ff9800', sheetKey:'Hal'},
+  {id:'aap', name:'AAP', color:'#a78bfa', sheetKey:'AAP'},
+  {id:'drivers', name:'Drivers', color:'#f472b6', sheetKey:'Drivers'},
+  {id:'upkeeping', name:'Up-keeping', color:'#34d399', sheetKey:'Up-keeping'},
+  {id:'housekeeping', name:'House-keeping', color:'#fbbf24', sheetKey:'House-keeping'},
+  {id:'canteen', name:'Canteen', color:'#60a5fa', sheetKey:'Canteen'},
+];
+
+let state = {};
+let activeTab = CATEGORIES[0].id;
+let isSyncing = false;
+let toastTimer;
+
+function resetState() {
+  state = {};
+  CATEGORIES.forEach(c => state[c.id] = []);
+}
+
+function countOn(id) {
+  return (state[id] || []).filter(p => p.status === 'on').length;
+}
+
+function totalPOB() {
+  return CATEGORIES.reduce((sum, c) => sum + countOn(c.id), 0);
+}
+
+function setPill(type, msg) {
+  const el = document.getElementById('statusPill');
+  el.className = 'status-pill ' + type;
+  el.textContent = msg;
+}
+
+function setSyncSpinner(on) {
+  document.getElementById('syncBtn').classList.toggle('spinning', on);
+}
+
+function updateClock() {
+  const n = new Date();
+  document.getElementById('clock').textContent = n.toLocaleTimeString('en-IN', {hour12:false});
+  document.getElementById('clockDate').textContent = n.toLocaleDateString('en-IN', {weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+function rebuildState(data) {
+  resetState();
+  CATEGORIES.forEach(cat => {
+    const rows = Array.isArray(data[cat.sheetKey]) ? data[cat.sheetKey] : [];
+    state[cat.id] = rows.map((p, i) => ({
+      id: `${cat.id}_${i}`,
+      name: String(p.name || '').trim(),
+      mobile: String(p.mobile || '').trim(),
+      status: String(p.status || 'off').trim().toLowerCase() === 'on' ? 'on' : 'off'
+    }));
+  });
+}
+
+async function loadFromSheets(showOverlay = true) {
+  if (isSyncing) return;
+  isSyncing = true;
+  if (showOverlay) document.getElementById('loadingOverlay').classList.remove('hidden');
+  setPill('loading', '↓ FETCHING...');
+  setSyncSpinner(true);
+
+  try {
+    const res = await fetch(`${APPS_SCRIPT_URL}?action=getAll&_ts=${Date.now()}`, {
+      method: 'GET',
+      cache: 'no-store',
+      headers: { 'Accept': 'application/json', 'Cache-Control': 'no-cache, no-store, must-revalidate' }
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    rebuildState(data);
+    document.getElementById('lastSyncTime').textContent = new Date().toLocaleTimeString('en-IN', {hour12:false});
+    setPill('ok', '✓ SYNCED');
+    setTimeout(() => setPill('idle', '⬤ READY'), 1500);
+  } catch (e) {
+    console.error(e);
+    setPill('error', '✗ FAILED');
+    showToastMsg('Could not fetch latest sheet data.', false);
+  } finally {
+    isSyncing = false;
+    setSyncSpinner(false);
+    document.getElementById('loadingOverlay').classList.add('hidden');
+    render();
+  }
+}
+
+async function pushToggle(person, cat) {
+  setPill('loading', '↑ SAVING...');
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8', 'Cache-Control': 'no-cache' },
+      body: JSON.stringify({
+        action: 'toggle',
+        category: cat.sheetKey,
+        name: person.name,
+        status: person.status,
+        _ts: Date.now()
+      })
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const out = await res.json().catch(() => ({ok:true}));
+    if (out.ok === false) throw new Error(out.error || 'Save failed');
+
+    document.getElementById('lastSyncTime').textContent = new Date().toLocaleTimeString('en-IN', {hour12:false});
+    setPill('ok', '✓ SAVED');
+    setTimeout(() => setPill('idle', '⬤ READY'), 1500);
+
+    setTimeout(() => loadFromSheets(false), 700);
+  } catch (e) {
+    console.error(e);
+    setPill('error', '✗ SAVE FAILED');
+    showToastMsg('Save failed — check Apps Script deployment.', false);
+  }
+}
+
+function syncNow() {
+  showToastMsg('Syncing latest data…', true);
+  loadFromSheets(false);
+}
+
+setInterval(() => {
+  if (!isSyncing) loadFromSheets(false);
+}, 60000);
+
+function togglePerson(personId, catId) {
+  if (isSyncing) return;
+  const cat = CATEGORIES.find(c => c.id === catId);
+  const person = (state[catId] || []).find(p => p.id === personId);
+  if (!person || !cat) return;
+
+  person.status = person.status === 'on' ? 'off' : 'on';
+  render();
+  showToast(person.name, person.status === 'on', cat);
+  pushToggle(person, cat);
+}
+
+function render() {
+  renderSections();
+  renderTabs();
+  renderPOBBanner();
+}
+
+function renderPOBBanner() {
+  document.getElementById('totalPOB').textContent = totalPOB();
+  document.getElementById('pobBreakdown').innerHTML = CATEGORIES.map(c => `
+    <div class="pob-chip">
+      <div class="pob-chip-dot" style="background:${c.color}"></div>
+      <span style="color:var(--muted);font-size:11px">${c.name}</span>
+      <span class="pob-chip-count" style="color:${c.color}">${countOn(c.id)}</span>
+    </div>`).join('');
+}
+
+function renderTabs() {
+  document.getElementById('tabsBar').innerHTML = CATEGORIES.map(c => `
+    <button class="tab-btn ${c.id===activeTab?'active':''}" onclick="switchTab('${c.id}')" style="${c.id===activeTab?`color:${c.color};border-bottom-color:${c.color}`:''}">
+      ${c.name}<span class="tab-count">${countOn(c.id)}</span>
+    </button>`).join('');
+}
+
+function switchTab(id) {
+  activeTab = id;
+  document.querySelectorAll('.category-section').forEach(e => e.classList.remove('active'));
+  document.getElementById('sec-' + id)?.classList.add('active');
+  renderTabs();
+  const inp = document.querySelector('#sec-' + id + ' .search-input');
+  if (inp) {
+    inp.value = '';
+    filterPersonnel('', id);
+  }
+}
+
+function renderSections() {
+  document.getElementById('sectionsContainer').innerHTML = CATEGORIES.map(cat => `
+    <div class="category-section ${cat.id===activeTab?'active':''}" id="sec-${cat.id}">
+      <div class="section-header">
+        <div class="section-title" style="color:${cat.color}">
+          <div class="section-dot" style="background:${cat.color};color:${cat.color}"></div>${cat.name}
+        </div>
+        <div class="section-stats">
+          <div class="stat-box"><div class="stat-num on">${countOn(cat.id)}</div><div class="stat-label">ON SITE</div></div>
+          <div class="stat-box"><div class="stat-num off">${(state[cat.id] || []).length - countOn(cat.id)}</div><div class="stat-label">OFF SITE</div></div>
+          <div class="stat-box"><div class="stat-num" style="color:var(--muted)">${(state[cat.id] || []).length}</div><div class="stat-label">TOTAL</div></div>
+        </div>
+      </div>
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="search-input" type="text" placeholder="Search by name or mobile…" oninput="filterPersonnel(this.value,'${cat.id}')">
+      </div>
+      <div class="personnel-grid" id="grid-${cat.id}">
+        ${((state[cat.id] || []).length ? state[cat.id].map(p => cardHTML(p, cat)).join('') : '<div class="empty-state">No records found.</div>')}
+      </div>
+    </div>`).join('');
+}
+
+function cardHTML(p, cat) {
+  const on = p.status === 'on';
+  return `<div class="person-card ${on?'on-site':''}" id="card-${p.id}" onclick="togglePerson('${p.id}','${cat.id}')">
+    <div class="person-checkbox"><span class="check-mark">✓</span></div>
+    <div class="person-info">
+      <div class="person-name">${escapeHtml(p.name)}</div>
+      <div class="person-meta">${p.mobile ? '📱 ' + escapeHtml(p.mobile) : 'No mobile'}</div>
+    </div>
+    <div class="status-badge ${on?'on':'off'}">${on?'ON':'OFF'}</div>
+  </div>`;
+}
+
+function filterPersonnel(q, catId) {
+  const cat = CATEGORIES.find(c => c.id === catId);
+  const ql = q.toLowerCase().trim();
+  const list = ql ? (state[catId] || []).filter(p => p.name.toLowerCase().includes(ql) || String(p.mobile || '').includes(ql)) : (state[catId] || []);
+  document.getElementById('grid-' + catId).innerHTML = list.length ? list.map(p => cardHTML(p, cat)).join('') : '<div class="empty-state">No results.</div>';
+}
+
+function showToast(name, on, cat) {
+  const t = document.getElementById('toast');
+  t.className = 'toast ' + (on ? 'toast-in' : 'toast-out');
+  t.innerHTML = `<span>${on ? '✅' : '🔴'}</span><div><div style="font-weight:600;font-size:13px">${escapeHtml(name)}</div><div style="font-size:11px;color:var(--muted)">${cat.name} · ${on ? 'Entered' : 'Exited'}</div></div>`;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function showToastMsg(msg, ok) {
+  const t = document.getElementById('toast');
+  t.className = 'toast ' + (ok ? 'toast-in' : 'toast-out');
+  t.innerHTML = `<span>${ok ? '✅' : '⚠'}</span><div style="font-size:13px">${escapeHtml(msg)}</div>`;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function escapeHtml(str) {
+  return String(str).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
+}
+
+resetState();
+loadFromSheets(true);
+</script>
+</body>
+</html>
